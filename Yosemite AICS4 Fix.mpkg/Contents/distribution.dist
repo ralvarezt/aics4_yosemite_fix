@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<installer-script authoringTool="Packages" authoringToolVersion="1.1.2" authoringToolBuild="2B104" minSpecVersion="1.0">
+    <options rootVolumeOnly="true" customize="never"/>
+    <installation-check script="installation_check()"/>
+    <volume-check script="volume_check()"/>
+    <!--+==========================+
+        |       Presentation       |
+        +==========================+-->
+    <title>DISTRIBUTION_TITLE</title>
+    <welcome file="welcome.rtfd"/>
+    <license file="license.rtf"/>
+    <!--+==========================+
+        |         Installer        |
+        +==========================+-->
+    <choices-outline>
+        <line choice="installer_choice_1"/>
+    </choices-outline>
+    <choice id="installer_choice_1" title="Yosemite AICS4 Fix" description="">
+        <pkg-ref id="pkg.YosemiteAICS4Fix"/>
+    </choice>
+    <!--+==========================+
+        |    Package References    |
+        +==========================+-->
+    <pkg-ref id="pkg.YosemiteAICS4Fix" version="1.0" auth="Root" installKBytes="8">file:./Contents/Packages/Yosemite%20AICS4%20Fix.pkg</pkg-ref>
+    <!--+==========================+
+        |    JavaScript Scripts    |
+        +==========================+-->
+    <script>
+
+	const __IC_FLAT_DISTRIBUTION__=false;
+	const IC_DISK_TYPE_DESTINATION=0;
+	const IC_DISK_TYPE_STARTUP_DISK=1;
+	const IC_OS_DISTRIBUTION_TYPE_ANY=0;
+	const IC_OS_DISTRIBUTION_TYPE_CLIENT=1;
+	const IC_OS_DISTRIBUTION_TYPE_SERVER=2;
+
+	const IC_CONDITION_EXIST=0;
+	const IC_CONDITION_DOES_NOT_EXIST=1;
+	const IC_SELECTOR_ANY=0;
+	const IC_SELECTOR_ALL=1;
+
+	function IC_CheckOS(inDiskType,inMustBeInstalled,inMinimumVersion,inDistributionType)
+	{
+		var tOSVersion=undefined;
+		
+		/* Check Minimum Version */
+		
+		if (inDiskType==IC_DISK_TYPE_DESTINATION)
+		{
+			if (my.target.systemVersion!=undefined)
+			{
+				tOSVersion=my.target.systemVersion.ProductVersion;
+			}
+			
+			/* Check if no OS is installed on the potential target */
+			
+			if (tOSVersion==undefined)
+			{
+				return (inMustBeInstalled==false);
+			}
+		}
+		else
+		{
+			tOSVersion=system.version.ProductVersion;
+		}
+		
+		if (system.compareVersions(tOSVersion,inMinimumVersion)==-1)
+		{
+			return false;
+		}
+		
+		/* Check Distribution Type */
+		
+		if (inDistributionType!=IC_OS_DISTRIBUTION_TYPE_ANY)
+		{
+			var tIsServer;
+			
+			if (system.compareVersions(tOSVersion,'10.8.0')==-1)
+			{
+				if (inDiskType==IC_DISK_TYPE_DESTINATION)
+				{
+					tIsServer=system.files.fileExistsAtPath(my.target.mountpoint+'/System/Library/CoreServices/ServerVersion.plist');
+				}
+				else
+				{
+					tIsServer=system.files.fileExistsAtPath('/System/Library/CoreServices/ServerVersion.plist');
+				}
+			}
+			else
+			{
+				if (inDiskType==IC_DISK_TYPE_DESTINATION)
+				{
+					tIsServer=system.files.fileExistsAtPath(my.target.mountpoint+'/Applications/Server.app');
+				}
+				else
+				{
+					tIsServer=system.files.fileExistsAtPath('/Applications/Server.app');
+				}
+			}
+			
+			if (inDistributionType==IC_OS_DISTRIBUTION_TYPE_CLIENT &amp;&amp; tIsServer==true)
+			{
+				return false;
+			}
+			
+			if (inDistributionType==IC_OS_DISTRIBUTION_TYPE_SERVER &amp;&amp; tIsServer==false)
+			{
+				return false;
+			}
+		}
+		
+		return true;
+	}
+
+	function IC_CheckFiles(inSelector,inCondition,inDiskType,inFiles)
+	{
+		var tCount;
+		
+		tCount=inFiles.length;
+		
+		if (tCount&gt;0)
+		{
+			var tIndex;
+			var tExists;
+			var tPath;
+			var atLeastOneTrue=false;
+			
+			for(tIndex=0;tIndex&lt;tCount;tIndex++)
+			{
+				tPath=inFiles[tIndex];
+			
+				if (inDiskType==IC_DISK_TYPE_DESTINATION)
+				{
+					tPath=my.target.mountpoint+tPath;
+				}
+			
+				if (system.files.fileExistsAtPath(tPath)==true)
+				{
+					if (inCondition==IC_CONDITION_EXIST)
+					{
+						atLeastOneTrue=true;
+						
+						if (inSelector==IC_SELECTOR_ANY)
+						{
+							return true;
+						}
+					}
+					else if (inCondition==IC_CONDITION_DOES_NOT_EXIST &amp;&amp; inSelector==IC_SELECTOR_ALL)
+					{
+						return false;
+					}
+				}
+				else
+				{
+					if (inCondition==IC_CONDITION_EXIST &amp;&amp; inSelector==IC_SELECTOR_ALL)
+					{
+						return false;
+					}
+					else if (inCondition==IC_CONDITION_DOES_NOT_EXIST)
+					{
+						atLeastOneTrue=true;
+						
+						if (inSelector==IC_SELECTOR_ANY)
+						{
+							return true;
+						}
+					}
+				}
+			}
+		
+			return atLeastOneTrue;
+		}
+		
+		return true;
+	}
+
+	function installation_check()
+	{
+		var tResult;
+
+		tResult=IC_CheckOS(IC_DISK_TYPE_STARTUP_DISK,true,'10.5',IC_OS_DISTRIBUTION_TYPE_ANY);
+
+		if (tResult==false)
+		{
+			my.result.title = system.localizedStandardStringWithFormat('InstallationCheckError', system.localizedString('DISTRIBUTION_TITLE'));
+			my.result.message = ' ';
+			my.result.type = 'Fatal';
+		}
+
+		return tResult;
+	}
+
+	function volume_check()
+	{
+		var tResult;
+
+		var tFilesToCheck0=new Array('/Applications/Adobe Illustrator CS4/Adobe Illustrator.app');
+
+		tResult=IC_CheckFiles(IC_SELECTOR_ANY,IC_CONDITION_EXIST,IC_DISK_TYPE_DESTINATION,tFilesToCheck0);
+
+		if (tResult==false)
+		{
+			my.result.message = system.localizedString('REQUIREMENT_FAILED_MESSAGE_VOLUME_CHECK_1');
+			my.result.type = 'Fatal';
+		}
+
+		return tResult;
+	}
+
+    </script>
+</installer-script>
